@@ -9,6 +9,7 @@ import logging
 import uuid
 import ctypes
 import winreg
+from urllib.parse import quote
 from plexapi.myplex import MyPlexAccount
 from pypresence import Presence, ActivityType
 import pystray
@@ -17,9 +18,10 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 
 # --- CONFIGURATION ---
-API_URL = "YOUR_API_URL_HERE"
+API_URL = "https://plexrpc-api.malvinarum.com"
+CINEMETA_URL = "https://v3-cinemeta.strem.io"
 APP_NAME = "PlexRPC"
-VERSION = "2.3.0"
+VERSION = "2.3.1"
 
 
 # --- ASSET RESOURCE HELPER ---
@@ -110,6 +112,52 @@ def fetch_config(client_uuid, app_version):
     except Exception as e:
         logging.error(f"Failed to fetch config: {e}")
         return None
+
+
+def fetch_video_metadata(item, title, media_type):
+    """Resolve public movie/series artwork without exposing the Plex token."""
+    cinemeta_type = "series" if media_type == "tv" else "movie"
+    headers = {"User-Agent": f"{APP_NAME}/{VERSION}"}
+
+    try:
+        imdb_id = None
+        for guid in getattr(item, 'guids', []) or []:
+            guid_id = getattr(guid, 'id', '')
+            if guid_id.startswith('imdb://'):
+                imdb_id = guid_id.removeprefix('imdb://').split('?')[0]
+                break
+
+        if imdb_id:
+            response = requests.get(
+                f"{CINEMETA_URL}/meta/{cinemeta_type}/{imdb_id}.json",
+                headers=headers,
+                timeout=5
+            )
+            response.raise_for_status()
+            meta = response.json().get('meta') or {}
+            if meta.get('poster'):
+                return meta
+
+        response = requests.get(
+            f"{CINEMETA_URL}/catalog/{cinemeta_type}/top/search={quote(title)}.json",
+            headers=headers,
+            timeout=5
+        )
+        response.raise_for_status()
+        matches = response.json().get('metas') or []
+        item_year = str(getattr(item, 'year', '') or getattr(item, 'grandparentYear', '') or '')
+
+        exact = [m for m in matches if m.get('name', '').casefold() == title.casefold() and m.get('poster')]
+        if item_year:
+            year_match = next((m for m in exact if str(m.get('releaseInfo', '')).startswith(item_year)), None)
+            if year_match:
+                return year_match
+        if exact:
+            return exact[0]
+    except Exception as e:
+        logging.warning(f"Cinemeta lookup failed for {media_type} '{title}': {e}")
+
+    return None
 
 
 # --- DYNAMIC TRAY ICON GENERATOR ---
@@ -398,6 +446,20 @@ class PlexPresence:
                 cache_key = (type_, q, album_name if album_name else '')
                 res = self.cache.get(cache_key)
 
+                if not res and type_ in ('movie', 'tv'):
+                    video_meta = fetch_video_metadata(current, q, type_)
+                    if video_meta:
+                        imdb_id = video_meta.get('imdb_id') or video_meta.get('id')
+                        res = {
+                            'found': True,
+                            'image': video_meta['poster'],
+                            'title': video_meta.get('name', q),
+                            'line1': video_meta.get('name', q),
+                            'line2': video_meta.get('releaseInfo', ''),
+                            'url': f"https://www.imdb.com/title/{imdb_id}/" if imdb_id else None
+                        }
+                        self.cache[cache_key] = res
+
                 if not res:
                     try:
                         req_params = {'q': q}
@@ -408,7 +470,8 @@ class PlexPresence:
                                            headers={"X-Client-UUID": self.config.get('client_uuid', 'unknown'),
                                                     "X-App-Version": VERSION}, timeout=3).json()
                         if res.get('found'): self.cache[cache_key] = res
-                    except:
+                    except Exception as e:
+                        logging.warning(f"Legacy metadata lookup failed for {type_} '{q}': {e}")
                         res = {}
 
                 if res.get('found'):

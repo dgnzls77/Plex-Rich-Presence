@@ -21,6 +21,10 @@ Unlike other scripts that require editing complex JSON config files, PlexRPC fea
 
 ## ✨ New in v2.3
 
+### v2.3.1 poster fix
+
+Movie and TV posters now resolve independently of the retired upstream metadata routes. PlexRPC uses Plex IMDb identifiers when available, with an exact title and year match as a fallback.
+
 The latest update brings major stability improvements and user-requested features:
 
 * **👻 Privacy Mode:** Temporarily pause your Rich Presence directly from the system tray without closing the app. Perfect for when you want some privacy.
