@@ -37,6 +37,10 @@ The expanded Discord activity card now displays `Watching [title]` without repea
 
 Movies include their release year in the title line, and music displays `Listening to [song]` while retaining the artist on the second line.
 
+### v2.3.5 concise media titles
+
+Activity detail lines now show only the movie, show, or song title because Discord already supplies the Watching or Listening header.
+
 The latest update brings major stability improvements and user-requested features:
 
 * **👻 Privacy Mode:** Temporarily pause your Rich Presence directly from the system tray without closing the app. Perfect for when you want some privacy.
