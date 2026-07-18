@@ -29,6 +29,10 @@ Movie and TV posters now resolve independently of the retired upstream metadata 
 
 Discord Rich Presence now uses the privately owned Brutalflix Discord application and identifies the current title and server in the expanded activity card.
 
+### v2.3.3 concise activity text
+
+The expanded Discord activity card now displays `Watching [title]` without repeating the Brutalflix server name.
+
 The latest update brings major stability improvements and user-requested features:
 
 * **👻 Privacy Mode:** Temporarily pause your Rich Presence directly from the system tray without closing the app. Perfect for when you want some privacy.
