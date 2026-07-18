@@ -23,7 +23,7 @@ CINEMETA_URL = "https://v3-cinemeta.strem.io"
 DISCORD_CLIENT_ID = "1527841393299685497"
 DEFAULT_LARGE_IMAGE = "https://raw.githubusercontent.com/dgnzls77/Plex-Rich-Presence/main/assets/icon.png"
 APP_NAME = "PlexRPC"
-VERSION = "2.3.5"
+VERSION = "2.3.6"
 
 
 # --- ASSET RESOURCE HELPER ---
@@ -159,6 +159,44 @@ def fetch_video_metadata(item, title, media_type):
     except Exception as e:
         logging.warning(f"Cinemeta lookup failed for {media_type} '{title}': {e}")
 
+    return None
+
+
+def fetch_music_metadata(title, artist, album=None):
+    """Resolve an album cover from Apple's public music catalog."""
+    try:
+        term = quote(f"{artist} {title}")
+        response = requests.get(
+            f"https://itunes.apple.com/search?term={term}&entity=song&limit=25",
+            headers={"User-Agent": f"{APP_NAME}/{VERSION}"},
+            timeout=5
+        )
+        response.raise_for_status()
+        results = response.json().get('results') or []
+        exact = [
+            item for item in results
+            if item.get('trackName', '').casefold() == title.casefold()
+            and item.get('artistName', '').casefold() == artist.casefold()
+            and item.get('artworkUrl100')
+        ]
+        if album:
+            album_match = next(
+                (item for item in exact if item.get('collectionName', '').casefold() == album.casefold()),
+                None
+            )
+            if album_match:
+                exact = [album_match]
+        if exact:
+            match = exact[0]
+            return {
+                'found': True,
+                'image': match['artworkUrl100'].replace('100x100bb', '600x600bb'),
+                'title': match.get('trackName', title),
+                'album': match.get('collectionName', album or artist),
+                'url': match.get('trackViewUrl')
+            }
+    except Exception as e:
+        logging.warning(f"Music lookup failed for '{artist} - {title}': {e}")
     return None
 
 
@@ -344,10 +382,23 @@ class PlexPresence:
         if not os.path.exists(CONFIG_FILE): return None
         with open(CONFIG_FILE, 'r') as f:
             data = json.load(f)
-            if 'client_uuid' not in data:
-                data['client_uuid'] = str(uuid.uuid4())
-                with open(CONFIG_FILE, 'w') as f: json.dump(data, f, indent=4)
-            return data
+        changed = False
+        if 'client_uuid' not in data:
+            data['client_uuid'] = str(uuid.uuid4())
+            changed = True
+
+        regular_libraries = {'music', 'movies', 'tv shows'}
+        audiobook_libraries = data.get('audiobook_libraries', [])
+        cleaned_libraries = [name for name in audiobook_libraries if name.casefold() not in regular_libraries]
+        if cleaned_libraries != audiobook_libraries:
+            data['audiobook_libraries'] = cleaned_libraries
+            logging.info("Removed regular Plex libraries from audiobook configuration.")
+            changed = True
+
+        if changed:
+            with open(CONFIG_FILE, 'w') as f:
+                json.dump(data, f, indent=4)
+        return data
 
     def connect_plex(self):
         try:
@@ -456,6 +507,11 @@ class PlexPresence:
                             'line2': video_meta.get('releaseInfo', ''),
                             'url': f"https://www.imdb.com/title/{imdb_id}/" if imdb_id else None
                         }
+                        self.cache[cache_key] = res
+
+                if not res and type_ == 'music':
+                    res = fetch_music_metadata(current.title, artist, album_name)
+                    if res:
                         self.cache[cache_key] = res
 
                 if not res:

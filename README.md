@@ -41,6 +41,10 @@ Movies include their release year in the title line, and music displays `Listeni
 
 Activity detail lines now show only the movie, show, or song title because Discord already supplies the Watching or Listening header.
 
+### v2.3.6 music cover correction
+
+Music album covers now resolve directly from the Apple music catalog. Regular music libraries are no longer misclassified as audiobook sources in the local configuration.
+
 The latest update brings major stability improvements and user-requested features:
 
 * **👻 Privacy Mode:** Temporarily pause your Rich Presence directly from the system tray without closing the app. Perfect for when you want some privacy.
