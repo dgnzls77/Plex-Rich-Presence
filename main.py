@@ -20,8 +20,10 @@ from tkinter import ttk, messagebox
 # --- CONFIGURATION ---
 API_URL = "https://plexrpc-api.malvinarum.com"
 CINEMETA_URL = "https://v3-cinemeta.strem.io"
+DISCORD_CLIENT_ID = "1527841393299685497"
+DEFAULT_LARGE_IMAGE = "https://raw.githubusercontent.com/dgnzls77/Plex-Rich-Presence/main/assets/icon.png"
 APP_NAME = "PlexRPC"
-VERSION = "2.3.1"
+VERSION = "2.3.2"
 
 
 # --- ASSET RESOURCE HELPER ---
@@ -363,9 +365,7 @@ class PlexPresence:
     def connect_discord(self):
         try:
             if not self.discord_client_id:
-                cfg = fetch_config(self.config.get('client_uuid', 'unknown'), VERSION)
-                if cfg:
-                    self.discord_client_id, self.latest_server_version = cfg['client_id'], cfg['latest_version']
+                self.discord_client_id = DISCORD_CLIENT_ID
 
             if self.discord_client_id:
                 logging.info(f"Connecting to Discord RPC (ID: {self.discord_client_id})...")
@@ -394,10 +394,8 @@ class PlexPresence:
             status = {
                 "details": current.title,
                 "state": "Playing",
-                "large_image": "plex_logo",
-                "small_image": "playing_icon",
-                "small_text": "Playing",
-                "buttons": [{"label": "Get PlexRPC", "url": "https://github.com/malvinarum/Plex-Rich-Presence"}]
+                "large_image": DEFAULT_LARGE_IMAGE,
+                "buttons": [{"label": "Get PlexRPC", "url": "https://github.com/dgnzls77/Plex-Rich-Presence"}]
             }
 
             is_paused = current.players[0].state == 'paused' if hasattr(current,
@@ -414,7 +412,7 @@ class PlexPresence:
                 status['start'] = time.time() - (current.viewOffset / 1000)
                 status['end'] = status['start'] + (current.duration / 1000)
             elif is_paused:
-                status['state'], status['small_text'] = "Paused", "Paused"
+                status['state'] = "Paused"
 
             q, type_, album_name = current.title, 'movie', None
 
@@ -434,10 +432,10 @@ class PlexPresence:
 
                 if current.librarySectionTitle in self.config.get('audiobook_libraries',
                                                                   []) or 'book' in current.librarySectionTitle.lower():
-                    q, type_, status['large_image'] = f"{current.title} {artist}", 'book', "book_icon"
+                    q, type_, status['large_image'] = f"{current.title} {artist}", 'book', DEFAULT_LARGE_IMAGE
                 else:
                     # Only search Artist + Title to prevent confusing iTunes
-                    q, type_, status['large_image'] = f"{artist} {current.title}".strip(), 'music', "plex_logo"
+                    q, type_, status['large_image'] = f"{artist} {current.title}".strip(), 'music', DEFAULT_LARGE_IMAGE
 
             status['activity_type'] = current_activity_type
 
@@ -485,6 +483,11 @@ class PlexPresence:
                         btn_label = "View on iTunes" if type_ == 'music' else "View Book" if type_ == 'book' else "View on TMDB"
                         status['buttons'].insert(0, {"label": btn_label, "url": res['url']})
                         status['buttons'] = status['buttons'][:2]
+
+            server_name = self.config.get('server_name', 'Plex')
+            display_server = server_name[:1].upper() + server_name[1:]
+            display_title = current.grandparentTitle if current.type == 'episode' else current.title
+            status['details'] = f"Watching {display_title} on {display_server}"
 
             return status
         except Exception as e:
