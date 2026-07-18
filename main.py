@@ -23,7 +23,7 @@ CINEMETA_URL = "https://v3-cinemeta.strem.io"
 DISCORD_CLIENT_ID = "1527841393299685497"
 DEFAULT_LARGE_IMAGE = "https://raw.githubusercontent.com/dgnzls77/Plex-Rich-Presence/main/assets/icon.png"
 APP_NAME = "PlexRPC"
-VERSION = "2.3.3"
+VERSION = "2.3.4"
 
 
 # --- ASSET RESOURCE HELPER ---
@@ -484,8 +484,15 @@ class PlexPresence:
                         status['buttons'].insert(0, {"label": btn_label, "url": res['url']})
                         status['buttons'] = status['buttons'][:2]
 
-            display_title = current.grandparentTitle if current.type == 'episode' else current.title
-            status['details'] = f"Watching {display_title}"
+            if current.type == 'track':
+                status['details'] = f"Listening to {current.title}"
+            elif current.type == 'episode':
+                status['details'] = f"Watching {current.grandparentTitle}"
+            else:
+                release_year = str(getattr(current, 'year', '') or res.get('line2', '') or '')
+                year_suffix = f" ({release_year[:4]})" if release_year[:4].isdigit() else ""
+                status['details'] = f"Watching {current.title}{year_suffix}"
+                status['state'] = "Paused" if is_paused else "Playing"
 
             return status
         except Exception as e:

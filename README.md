@@ -33,6 +33,10 @@ Discord Rich Presence now uses the privately owned Brutalflix Discord applicatio
 
 The expanded Discord activity card now displays `Watching [title]` without repeating the Brutalflix server name.
 
+### v2.3.4 media-aware activity text
+
+Movies include their release year in the title line, and music displays `Listening to [song]` while retaining the artist on the second line.
+
 The latest update brings major stability improvements and user-requested features:
 
 * **👻 Privacy Mode:** Temporarily pause your Rich Presence directly from the system tray without closing the app. Perfect for when you want some privacy.
